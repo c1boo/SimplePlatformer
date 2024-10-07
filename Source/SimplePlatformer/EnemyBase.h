@@ -17,9 +17,15 @@ class SIMPLEPLATFORMER_API AEnemyBase : public ACharacterBase
 public:
 	AEnemyBase();
 
+protected:
+	virtual void BeginPlay() override;
+
 private:
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<class AVFXBase> DeathVFX;
+
+	UFUNCTION()
+	void OnDefeated();
 	
 	virtual void Destroyed() override;
 };

@@ -33,10 +33,10 @@ float ACharacterBase::TakeDamage(float DamageAmount, FDamageEvent const& DamageE
 {
 	float AppliedDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 
-	Vitality->ReceiveDamage(DamageAmount);
+	if (!Vitality->GetIsDefeated()) Vitality->ReceiveDamage(DamageAmount);
 	if (Vitality->GetIsDefeated())
 	{
-		Destroy();
+		 Defeated.ExecuteIfBound();
 	}
 	else
 	{

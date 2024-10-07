@@ -13,5 +13,9 @@ UCLASS()
 class SIMPLEPLATFORMER_API APlatformerGameMode : public AGameModeBase
 {
 	GENERATED_BODY()
-	
+
+protected:
+	virtual void BeginPlay() override;
+public:
+	void RespawnPlayer();
 };

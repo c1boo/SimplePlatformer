@@ -11,6 +11,17 @@ AEnemyBase::AEnemyBase()
 	Faction = EFaction::Enemy;
 }
 
+void AEnemyBase::BeginPlay()
+{
+	Super::BeginPlay();
+	Defeated.BindDynamic(this, &AEnemyBase::OnDefeated);
+}
+
+void AEnemyBase::OnDefeated()
+{
+	Destroy();
+}
+
 void AEnemyBase::Destroyed()
 {
 	Super::Destroyed();

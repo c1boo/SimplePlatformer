@@ -7,6 +7,9 @@
 #include "EFaction.h"
 #include "CharacterBase.generated.h"
 
+UDELEGATE()
+DECLARE_DYNAMIC_DELEGATE(FDefeatedDelegate);
+
 /**
  * 
  */
@@ -23,11 +26,13 @@ public:
 
 protected:
 
+	FDefeatedDelegate Defeated;
+	
 	virtual void BeginPlay() override;
 
 	UFUNCTION()
 	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
-
+	
 	/* ~Begin */
 	/* Parameters and functions for the flashing effect when the character takes a hit*/
 	// Flashes the sprite by the amount specified

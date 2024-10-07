@@ -18,6 +18,7 @@
 #include "PlayerProjectileBase.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "AsyncRootMovement.h"
+#include "PlatformerGameMode.h"
 
 APlayerCharacter::APlayerCharacter()
 {
@@ -51,14 +52,13 @@ APlayerCharacter::APlayerCharacter()
 void APlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	// Access the player controller to get the input subsystem
 	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
 	{
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
 		{
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
-			PlayerInput = Subsystem->GetPlayerInput();
 		}
 	}
 
@@ -70,22 +70,24 @@ void APlayerCharacter::BeginPlay()
 		LateralFriction = MovementComponent->FallingLateralFriction;
 	}
 
-	
+	GameMode = Cast<APlatformerGameMode>(GetWorld()->GetAuthGameMode());
+	Defeated.BindDynamic(this, &APlayerCharacter::OnDefeated);
 }
 
 void APlayerCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-
+	
 	bIsWallSliding = CanWallSlide();
+
 	if (bIsWallSliding)
 	{
 		FVector NewVelocity = MovementComponent->Velocity;
 		NewVelocity.Z = FMath::Max(NewVelocity.Z, WallSlideDropSpeed);
 		MovementComponent->Velocity = NewVelocity;
 	}
-
-	if (bIsSliding && PlayerInput->GetActionValue(MoveAction).Get<FVector2D>().X * GetActorForwardVector().X < 0)
+	
+	if (bIsSliding && !bIsFacingDirection)
 	{
 		ToggleIsSliding();
 	}
@@ -106,6 +108,25 @@ void APlayerCharacter::OnOverlap(UPrimitiveComponent* OverlappedComponent, AActo
 	if (Cast<AEnemyBase>(OtherActor) && OtherComponent->IsA(UCapsuleComponent::StaticClass()))
 	{
 		UGameplayStatics::ApplyDamage(this, OverlapDamage, nullptr, OtherActor, UDamageType::StaticClass());
+	}
+}
+
+void APlayerCharacter::OnDefeated()
+{
+	if (GameMode)
+	{
+		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		SpringArm->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+		DisableInput(UGameplayStatics::GetPlayerController(this, 0));
+		UGameplayStatics::GetPlayerCameraManager(this, 0)->StartCameraFade(
+			0.f, 1.f,
+			RespawnTimer, FColor::Black,
+			false, true);
+		GetWorldTimerManager().SetTimer(Timer, this, &APlayerCharacter::DestroyAndRespawnCharacter, RespawnTimer);
+	}
+	else
+	{
+		UGameplayStatics::GetPlayerController(this, 0)->RestartLevel();
 	}
 }
 
@@ -144,8 +165,10 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 void APlayerCharacter::Move(const FInputActionInstance& Instance)
 {
 	if (bIsStunned) return;
-	
+
 	float Value = Instance.GetValue().Get<FVector2D>().X;
+	bIsFacingDirection = Value * GetActorForwardVector().X > 0.f;
+	
 	AddMovementInput(FVector(1.f, 0.f, 0.f), Value);
 
 	// Rotate to the moving direction
@@ -159,6 +182,12 @@ void APlayerCharacter::Move(const FInputActionInstance& Instance)
 	}
 }
 
+bool APlayerCharacter::TrySlide()
+{
+	//TODO: Implement try slide
+	return false;
+}
+
 void APlayerCharacter::StartJump()
 {
 	if (bIsStunned) return;
@@ -169,17 +198,14 @@ void APlayerCharacter::StartJump()
 	}
 	else if (MovementComponent->IsMovingOnGround())
 	{
-		if (PlayerInput->GetActionValue(MoveAction).Get<FVector2D>().Y < 0.f)
+		if (TrySlide())
 		{
 			Slide();
 		}
 		else
 		{
 			Jump();
-			if (SlideAction)
-			{
-				ToggleIsSliding();
-			}
+			if (SlideAction) ToggleIsSliding();	
 		}
 	}
 }
@@ -202,7 +228,6 @@ void APlayerCharacter::WallJump()
 bool APlayerCharacter::CanWallSlide()
 {
 	if (MovementComponent->Velocity.Z > -50.f) return false;
-	if (!PlayerInput) return false;
 	
 	FVector StartLoc = GetActorLocation();
 	FVector EndLoc = StartLoc + GetActorForwardVector() * WallSlideDistance;
@@ -211,9 +236,7 @@ bool APlayerCharacter::CanWallSlide()
 	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldStatic);
 
 	return
-		GetWorld()->LineTraceSingleByObjectType(Hit, StartLoc, EndLoc, ObjectQueryParams)
-		&&
-		PlayerInput->GetActionValue(MoveAction).Get<FVector2D>().X * GetActorForwardVector().X > 0;
+			GetWorld()->LineTraceSingleByObjectType(Hit, StartLoc, EndLoc, ObjectQueryParams) && bIsFacingDirection;
 }
 
 void APlayerCharacter::Slide()
@@ -413,6 +436,11 @@ void APlayerCharacter::ToggleIsSliding()
 {
 	if (SlideAction) SlideAction->Cancel();
 	bIsSliding = false;
+}
+
+void APlayerCharacter::DestroyAndRespawnCharacter()
+{
+	GameMode->RespawnPlayer();
 }
 
 

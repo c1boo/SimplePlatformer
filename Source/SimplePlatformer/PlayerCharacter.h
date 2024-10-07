@@ -11,7 +11,6 @@ class USpringArmComponent;
 class UCameraComponent;
 class UInputAction;
 class UInputMappingContext;
-class UEnhancedPlayerInput;
 class UAsyncRootMovement;
 struct FInputActionInstance;
 
@@ -54,6 +53,9 @@ protected:
 	UFUNCTION()
 	void OnOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bSweep, const FHitResult& SweepResult);
 
+	UFUNCTION()
+	void OnDefeated();
+	
 	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 	
 private:
@@ -93,6 +95,9 @@ private:
 	UPROPERTY(EditAnywhere, Category="Combat")
 	TSubclassOf<AProjectileBase> FullChargedProjectileClass;
 
+	UPROPERTY(EditAnywhere, Category="Combat")
+	float RespawnTimer = 2.f;
+	
 	UPROPERTY(EditAnywhere, Category="Combat")
 	float PartialChargeThreshold = 0.8f;
 
@@ -162,16 +167,17 @@ private:
 	float SpriteFlickerRate = 0.12f;
 
 	UPROPERTY()
-	UEnhancedPlayerInput* PlayerInput;
+	UAsyncRootMovement* SlideAction;
 
 	UPROPERTY()
-	UAsyncRootMovement* SlideAction;
+	class APlatformerGameMode* GameMode;
 	
 	bool bIsSpriteVisible = true;
 	bool bIsShooting = false;
 	bool bIsStunned = false;
 	bool bGotHitDuringCharged = false;
 	bool bIsSliding = false;
+	bool bIsFacingDirection;
 	
 	FTimerHandle Timer;
 	FTimerHandle StunTimer;
@@ -179,7 +185,8 @@ private:
 	FTimerHandle WallJumpTimer;
 	
 	void Move(const FInputActionInstance& Instance);
-	
+
+	bool TrySlide();
 	void StartJump();
 	void StopJump();
 	void WallJump();
@@ -216,5 +223,8 @@ private:
 
 	UFUNCTION()
 	void ToggleIsSliding();
+
+	UFUNCTION()
+	void DestroyAndRespawnCharacter();
 	/* ~End */
 };
